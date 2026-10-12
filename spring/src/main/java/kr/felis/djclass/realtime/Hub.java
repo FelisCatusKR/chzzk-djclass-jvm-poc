@@ -215,7 +215,14 @@ public class Hub implements SmartLifecycle {
 			while (true) {
 				next += FLUSH_INTERVAL.toNanos();
 				Thread.sleep(Duration.ofNanos(Math.max(0, next - System.nanoTime())));
-				flushOnce(ch);
+				try {
+					flushOnce(ch);
+				} catch (Exception | Error e) { // an uncaught throwable would end this channel's flushing silently
+					if (e instanceof VirtualMachineError vme) {
+						throw vme;
+					}
+					log.error("flush channel={}", ch.id, e);
+				}
 			}
 		} catch (InterruptedException e) {
 			// cancelled

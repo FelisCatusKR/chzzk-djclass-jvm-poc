@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import kr.felis.djclass.store.Store;
+import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.context.annotation.ImportRuntimeHints;
 import org.springframework.stereotype.Component;
 
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @ImportRuntimeHints(CaffeineHints.class)
+@RegisterReflectionForBinding(Resolver.ClassRow.class) // native: Jackson reads record components reflectively
 public class Resolver {
 	public enum Status { linked, unlinked }
 
