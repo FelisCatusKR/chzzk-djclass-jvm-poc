@@ -1,0 +1,50 @@
+# bench.sh output, 2026-10-12 (second session): Go, Spring and Quarkus re-measured back to back
+# Host: Raspberry Pi 4 Model B Rev 1.5, 4 cores, 6 GB usable RAM, Linux 6.18.33+rpt-rpi-v8 aarch64, podman 5.4.2
+# Load: 20 channels x 5 widget streams = 100 SSE, 5 msg/s per channel (100 msg/s), 90 s
+# start = container start -> /healthz 200 (includes ~1 s podman overhead); RSS = VmRSS of PID 1; cpu = utime+stime during the load
+#
+# go:      ghcr.io/feliscatuskr/chzzk-djclass-chat:sha-d04d885
+# spring:  Spring Boot 4.1.1, JVM images built at cbebf6a, native at f76e61c
+# quarkus: Quarkus 3.40.1 (Mandrel jdk-25.0.4.1 for native), built at ab33639
+# *-aot-tuned: JAVA_TOOL_OPTIONS="-XX:+UseSerialGC -Xmx64m -Xss256k -XX:ReservedCodeCacheSize=32m -XX:MaxMetaspaceSize=96m -XX:CICompilerCount=2"
+# *-native-64m: native binary with -Xmx64m
+#
+# Image sizes (podman images):
+#   go 17.9 MB
+#   spring:  jvm 423 MB, jlink 151 MB, jlink-aot 221 MB, native 155 MB
+#   quarkus: jvm 434 MB, jlink 161 MB, jlink-aot 212 MB, native 105 MB
+# Native build on the Pi: spring ~23 min / peak 4.7-5.3 GB; quarkus 15m46s / peak 3.84 GB
+
+go         start= 1530ms idle=  15MB peak=  34MB after=  24MB cpu= 14.0s stop=  698ms | streams=100 sent=9000 failed=0 chat-events=36025 (360.2/stream) bytes=11699640
+spring-jvm start=23931ms idle= 207MB peak= 276MB after= 276MB cpu= 73.0s stop=  813ms | streams=100 sent=8829 failed=0 chat-events=35685 (356.9/stream) bytes=8678320
+spring-jlink start=23105ms idle= 227MB peak= 296MB after= 296MB cpu= 69.9s stop=  843ms | streams=100 sent=8788 failed=0 chat-events=35590 (355.9/stream) bytes=8640000
+spring-jlink-aot start=11881ms idle= 221MB peak= 311MB after= 311MB cpu= 64.8s stop=  839ms | streams=100 sent=8911 failed=0 chat-events=35910 (359.1/stream) bytes=8755705
+spring-aot-tuned start= 9026ms idle= 170MB peak= 210MB after= 209MB cpu= 66.2s stop=  885ms | streams=100 sent=8843 failed=0 chat-events=35750 (357.5/stream) bytes=8692350
+spring-native start= 2277ms idle= 141MB peak= 170MB after= 145MB cpu= 26.3s stop=  692ms | streams=100 sent=8965 failed=0 chat-events=35950 (359.5/stream) bytes=8803325
+spring-native-64m start= 1782ms idle= 108MB peak= 129MB after= 124MB cpu= 28.9s stop=  636ms | streams=100 sent=8936 failed=0 chat-events=35875 (358.8/stream) bytes=8775930
+quarkus-jvm start= 7813ms idle= 139MB peak= 188MB after= 188MB cpu= 61.5s stop=  858ms | streams=100 sent=8808 failed=0 chat-events=35630 (356.3/stream) bytes=8587055
+quarkus-jlink start= 8324ms idle= 150MB peak= 183MB after= 183MB cpu= 61.2s stop=  826ms | streams=100 sent=8856 failed=0 chat-events=35830 (358.3/stream) bytes=8634075
+quarkus-jlink-aot start= 5379ms idle= 170MB peak= 240MB after= 240MB cpu= 58.2s stop= 1503ms | streams=100 sent=8864 failed=0 chat-events=35865 (358.6/stream) bytes=8641960
+quarkus-aot-tuned start= 5354ms idle= 130MB peak= 163MB after= 159MB cpu= 56.8s stop=  733ms | streams=100 sent=8835 failed=0 chat-events=35780 (357.8/stream) bytes=8614750
+quarkus-native start=  979ms idle=  58MB peak= 106MB after= 101MB cpu= 23.0s stop=  629ms | streams=100 sent=8987 failed=0 chat-events=36025 (360.2/stream) bytes=8752385
+quarkus-native-64m start= 1025ms idle=  58MB peak=  71MB after=  62MB cpu= 25.4s stop=  616ms | streams=100 sent=8986 failed=0 chat-events=36025 (360.2/stream) bytes=8751695
+
+# quarkus-jvm / -jlink / -jlink-aot were first measured with a loadgen that only counted 'event: chat'
+# (Quarkus writes 'event:chat'); those runs reported 0 events and were re-run above after the fix.
+# First-run numbers for reference: jvm start=8621ms idle=135MB peak=187MB; jlink start=8026ms idle=149MB peak=184MB;
+# jlink-aot start=5576ms idle=171MB peak=242MB.
+
+# Native Memory Tracking, *-aot-tuned flags + 30 s of the same load (committed, MB):
+#                     spring   quarkus
+# Total                170.0     146.0
+# Java Heap             64.0      64.0
+# Shared class (AOT)    62.1      46.9
+# Code (JIT)            22.2      14.2
+# Metaspace              9.3       7.6
+# Other                ~12.4     ~13.3
+
+# Quarkus native without @RegisterForReflection on Resolver.ClassRow (built separately, 15m34s):
+# badge-less messages delivered; batches containing a badge dropped with
+#   ERROR [kr.felis.djclass.realtime.Hub] encode batch: InvalidDefinitionException: No serializer found for class
+#   kr.felis.djclass.resolver.Resolver$ClassRow and no properties discovered ...
+# the channel kept working (Spring native threw UnsupportedFeatureError instead and the flush thread died).
