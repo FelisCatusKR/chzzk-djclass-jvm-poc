@@ -6,33 +6,44 @@ import kr.felis.djclass.realtime.Hub;
 import kr.felis.djclass.store.Store;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/** dev.go: demo viewers + chat injection. Only registered when DEV=1. */
+/**
+ * dev.go: demo viewers + chat injection when DEV=1. Checked at runtime, not with
+ * @ConditionalOnProperty: Spring AOT (native image) evaluates conditions at build
+ * time and would freeze the bean in or out.
+ */
 @RestController
-@ConditionalOnProperty(name = "djclass.dev", havingValue = "1")
 public class DevController implements ApplicationRunner {
 	private final Hub hub;
 	private final Store store;
+	private final boolean dev;
 
-	DevController(Hub hub, Store store) {
+	DevController(Hub hub, Store store, @Value("${djclass.dev}") String dev) {
 		this.hub = hub;
 		this.store = store;
+		this.dev = dev.equals("1") || dev.equals("true");
 	}
 
 	@PostMapping("/dev/chat")
 	ResponseEntity<String> chat(@RequestParam String channel, @RequestParam String sender,
 			@RequestParam String text) {
+		if (!dev) {
+			return ResponseEntity.notFound().build();
+		}
 		boolean ok = hub.inject(channel, new ChatMessage(sender, sender, text, Map.of()));
 		return ok ? ResponseEntity.ok("ok") : ResponseEntity.status(404).body("위젯이 열려 있지 않은 채널입니다.");
 	}
 
 	@Override
 	public void run(ApplicationArguments args) {
+		if (!dev) {
+			return;
+		}
 		store.writeTx(q -> {
 			for (var id : new String[] {"dev-showstopper", "dev-theory", "dev-unsynced", "dev-streamer"}) {
 				q.sql("INSERT INTO users (chzzk_id, chzzk_nickname) VALUES (?, ?) ON CONFLICT DO NOTHING")
