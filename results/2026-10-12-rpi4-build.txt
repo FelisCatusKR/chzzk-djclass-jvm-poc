@@ -1,0 +1,30 @@
+# Build cost, 2026-10-12. buildbench/measure.sh numbers from each build container's cgroup:
+#   wall = elapsed, cpu = cgroup usage_usec, mem_peak = memory.peak (includes page cache),
+#   anon_peak = peak anonymous memory sampled every 0.5 s (the build's working memory)
+# Host: Raspberry Pi 4, 4 cores, 6 GB; builds run one at a time; builder image pulls not counted.
+# go: chzzk-djclass-chat 11d237c (Go 1.27.1); spring/quarkus: this repo at 4a74ee4
+# Gradle/Maven run without a daemon (--no-daemon / plain mvn), like CI.
+#
+# The native runs below came from a second invocation (the first one forgot --entrypoint for the
+# native-image builder images); buildbench/run.sh is the consolidated script.
+# Builder images: golang:1.27.1-trixie 927 MB, eclipse-temurin:25-jdk 461 MB, maven:3.9-eclipse-temurin-25 527 MB,
+#   graalvm native-image-community:25 (+findutils) 1.05 GB, mandrel jdk-25.0.4.1 (+maven) 1.3 GB
+
+go-cold                    rc=0 wall=110.8s cpu=302.4s mem_peak=1449MB anon_peak=758MB
+  (module cache 300M, build cache 160M)
+go-clean                   rc=0 wall=99.0s cpu=287.3s mem_peak=1028MB anon_peak=732MB
+go-incremental             rc=0 wall=2.3s cpu=3.4s mem_peak=86MB anon_peak=65MB
+spring-cold                rc=0 wall=226.5s cpu=578.1s mem_peak=1528MB anon_peak=1107MB
+  (gradle home 299M)
+spring-clean               rc=0 wall=79.9s cpu=209.1s mem_peak=727MB anon_peak=716MB
+spring-incremental         rc=0 wall=45.4s cpu=109.6s mem_peak=553MB anon_peak=545MB
+quarkus-cold               rc=0 wall=84.6s cpu=206.4s mem_peak=731MB anon_peak=487MB
+  (maven repo 146M)
+quarkus-clean              rc=0 wall=53.2s cpu=161.7s mem_peak=443MB anon_peak=432MB
+quarkus-incremental        rc=0 wall=55.5s cpu=167.8s mem_peak=420MB anon_peak=410MB
+spring-native              rc=0 wall=1471.9s cpu=4835.3s mem_peak=5431MB anon_peak=5182MB
+quarkus-native             rc=0 wall=896.7s cpu=3039.6s mem_peak=4482MB anon_peak=3917MB
+go-clean-sqlite-only       rc=0 wall=79.6s cpu=204.9s mem_peak=1058MB anon_peak=746MB
+go-then-rest               rc=0 wall=28.5s cpu=88.4s mem_peak=374MB anon_peak=282MB
+  deps: 264 packages; modernc.org/*: 8 packages; sqlite+libc .go lines: 686999
+  project .go lines (non-test): 4067
