@@ -45,7 +45,8 @@ func main() {
 			for sc.Scan() {
 				l := sc.Text()
 				bytes.Add(int64(len(l)))
-				if strings.HasPrefix(l, "event: chat") {
+				// SSE: "event:chat" and "event: chat" are the same field (one optional space).
+				if v, ok := strings.CutPrefix(l, "event:"); ok && strings.TrimPrefix(v, " ") == "chat" {
 					events.Add(1)
 				}
 			}
