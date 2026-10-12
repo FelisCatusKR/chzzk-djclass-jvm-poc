@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import kr.felis.djclass.store.Store;
+import org.springframework.context.annotation.ImportRuntimeHints;
 import org.springframework.stereotype.Component;
 
 /**
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component;
  * Badge selection (internal/djclass) is left out of this prototype.
  */
 @Component
+@ImportRuntimeHints(CaffeineHints.class)
 public class Resolver {
 	public enum Status { linked, unlinked }
 
