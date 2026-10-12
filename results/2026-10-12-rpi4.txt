@@ -1,0 +1,30 @@
+# bench.sh output, 2026-10-12
+# Host: Raspberry Pi 4 Model B Rev 1.5, 4 cores, 6 GB usable RAM, Linux 6.18.33+rpt-rpi-v8 aarch64, podman 5.4.2
+# Load: 20 channels x 5 widget streams = 100 SSE, 5 msg/s per channel (100 msg/s), 90 s
+# start = container start -> /healthz 200 (includes ~1 s podman overhead); RSS = VmRSS of PID 1; cpu = utime+stime during the load
+#
+# go: ghcr.io/feliscatuskr/chzzk-djclass-chat:main
+#     revision d04d885c3b24c11b78b274586e2c49a05568c526, digest sha256:229582e917ec6432f9584058bd82585b7da33e3b01edaa9c957f1a2d60b8f9a8
+# JVM variants were built at commit cbebf6a (the later native fixes don't change JVM behaviour).
+# aot-tuned: JAVA_TOOL_OPTIONS="-XX:+UseSerialGC -Xmx64m -Xss256k -XX:ReservedCodeCacheSize=32m -XX:MaxMetaspaceSize=96m -XX:CICompilerCount=2"
+# native: built at f76e61c; native-tuned adds -Xmx64m
+#
+# Image sizes (podman images): go 17.9 MB, jvm 423 MB, jlink 151 MB, jlink-aot 221 MB, native 155 MB
+
+go         start= 1134ms idle=  15MB peak=  35MB after=  24MB cpu= 15.6s stop=  617ms | streams=100 sent=9000 failed=0 chat-events=36025 (360.2/stream) bytes=11699640
+jvm        start=23822ms idle= 216MB peak= 273MB after= 273MB cpu= 69.8s stop=  824ms | streams=100 sent=8843 failed=0 chat-events=35720 (357.2/stream) bytes=8691420
+jlink      start=26114ms idle= 258MB peak= 306MB after= 306MB cpu= 65.8s stop= 1409ms | streams=100 sent=8905 failed=0 chat-events=35835 (358.4/stream) bytes=8748235
+jlink-aot  start=11633ms idle= 222MB peak= 311MB after= 311MB cpu= 66.2s stop=  862ms | streams=100 sent=8949 failed=0 chat-events=35955 (359.6/stream) bytes=8789740
+aot-tuned  start= 9000ms idle= 176MB peak= 212MB after= 210MB cpu= 67.5s stop=  810ms | streams=100 sent=8890 failed=0 chat-events=35780 (357.8/stream) bytes=8733810
+native     start= 1857ms idle= 141MB peak= 174MB after= 158MB cpu= 28.0s stop=  851ms | streams=100 sent=8974 failed=0 chat-events=35720 (357.2/stream) bytes=8804085
+native-tuned start= 1786ms idle= 109MB peak= 137MB after= 120MB cpu= 26.5s stop=  609ms | streams=100 sent=8937 failed=0 chat-events=35850 (358.5/stream) bytes=8776180
+
+# Invalid run kept for the record: native image before f76e61c. Flush threads died on the first batch
+# containing a badge, so streams received ~1/4 of the events; the numbers are not comparable.
+# native     start= 1907ms idle= 141MB peak= 175MB after= 159MB cpu= 23.2s stop=  678ms | streams=100 sent=8969 failed=0 chat-events=7725 (77.2/stream) bytes=3352092
+
+# Native Memory Tracking, aot-tuned flags + 30 s of the same load (committed, MB):
+# Total 170 | Java Heap 64.0 | Shared class space (AOT cache) 62.1 | Code 22.2 | Metaspace 9.3 | Arena 2.3
+# Symbol 2.0 | Thread 1.9 | NMT 1.8 | Class 1.7 | Synchronization 1.0 | Compiler 0.9 | other < 1
+
+# Native image build on the Pi: 23-24 min, peak RSS 4.7-5.3 GB, CPU load ~3.2 of 4.
