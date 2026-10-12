@@ -1,0 +1,4 @@
+loadgen/loadgen
+loadgen/seedtool
+*.sqlite3*
+.env*
