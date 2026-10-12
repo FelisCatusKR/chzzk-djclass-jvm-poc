@@ -30,3 +30,30 @@ WORKDIR /app
 ENV SQLITE_PATH=/data/djclass.sqlite3
 ENTRYPOINT ["/jre/bin/java", "-jar", "app.jar"]
 
+# ---- C: B + JDK 25 AOT cache (JEP 483/514/515): a training run at build time ----
+FROM build AS aot-train
+COPY --from=jre /jre /jre
+WORKDIR /app
+RUN /jre/bin/java -XX:AOTCacheOutput=/app/app.aot -Dspring.context.exit=onRefresh \
+        -Ddjclass.sqlite-path=/tmp/train.sqlite3 -jar app.jar
+
+FROM gcr.io/distroless/cc-debian13:nonroot AS jlink-aot
+COPY --from=jre /jre /jre
+COPY --from=aot-train /app /app
+WORKDIR /app
+ENV SQLITE_PATH=/data/djclass.sqlite3
+ENTRYPOINT ["/jre/bin/java", "-XX:AOTCache=app.aot", "-jar", "app.jar"]
+
+# ---- D: GraalVM native image ----
+FROM ghcr.io/graalvm/native-image-community:25 AS native-build
+RUN microdnf install -y findutils > /dev/null
+WORKDIR /src
+COPY gradlew settings.gradle.kts build.gradle.kts ./
+COPY gradle gradle
+COPY src src
+RUN --mount=type=cache,target=/root/.gradle ./gradlew --no-daemon nativeCompile -x test
+
+FROM gcr.io/distroless/cc-debian13:nonroot AS native
+COPY --from=native-build /src/build/native/nativeCompile/djclass /djclass
+ENV SQLITE_PATH=/data/djclass.sqlite3
+ENTRYPOINT ["/djclass"]
